@@ -4,13 +4,13 @@ local g_config = {
     spawnX = 250,
     spawnY = 250,
     toysAreas = {
-        {x1 = 0, y1 = 0, x2 = 800, y2 = 600}
+        {x1 = 0, y1 = 0, x2 = 250, y2 = 600}
     },
     packingAreas = {
-        {x1 = 0, y1 = 0, x2 = 800, y2 = 600}
+        {x1 = 250, y1 = 0, x2 = 500, y2 = 600}
     },
     dropOffAreas = {
-        {x1 = 0, y1 = 0, x2 = 800, y2 = 600}
+        {x1 = 500, y1 = 0, x2 = 750, y2 = 600}
     },
     minigameChars = {"q","r","t","y","u","i","o","p","f","g","h","j","k","l","z","x","c","v","b","n","m","1","2","3","4","5","6","7","8","9","0"}
 }
@@ -23,7 +23,8 @@ local g_gameState = 0
 local g_textAreaIds = {
     countdown = 1,
     inventory = 2,
-    toast = 3
+    toast = 3,
+    scoreboard = 4
 }
 
 -- Utilities
@@ -55,7 +56,7 @@ local function addTimer(callback, startDelay, loop, ...)
 end
 
 local function showToast(text, duration, playerName)
-    ui.addTextArea(g_textAreaIds.toast, text, playerName, 300, 250, 200, 30, 0x324650, 0x000000, 0.7, true)
+    ui.addTextArea(g_textAreaIds.toast, text, playerName, 300, 250, 200, 20, 0x324650, 0x000000, 0.6, true)
     addTimer(function()
         ui.removeTextArea(g_textAreaIds.toast, playerName)
     end, duration, false)
@@ -76,34 +77,47 @@ local function init()
         eventNewPlayer(playerName)
     end
 
-    print("Script initialized!")
+    print("Script inizializzato!")
 end
 
 local function addPlayer(playerName)
-    local player = {
-        name = playerName,
-        carrying = 0
-    }
-    g_players[playerName] = player
+    local player = g_players[playerName]
+    if player == nil then
+        print("Nuovo giocatore: " .. playerName)
+        player = {
+            name = playerName,
+            carrying = 0,
+            score = 0
+        }
+        g_players[playerName] = player
+    end
+    tfm.exec.setPlayerScore(playerName, player.score, false)
     system.bindKeyboard(playerName, 32, true, true)
-    ui.addTextArea(g_textAreaIds.inventory, "", playerName, 5, 28, 200, 30, 0x324650, 0x000000, 1, true)
+end
+
+local function resetPlayer(playerName)
+    local player = g_players[playerName]
+    if player ~= nil then
+        removePlayer(playerName)
+        eventNewPlayer(playerName)
+        tfm.exec.killPlayer(playerName)
+    end
 end
 
 local function removePlayer(playerName)
     local player = g_players[playerName]
-    if (player) then
+    if player ~= nil then
         ui.removeTextArea(g_textAreaIds.inventory, playerName)
         system.bindKeyboard(playerName, 32, true, false)
         g_players[playerName] = nil
     end
 end
 
-local function resetPlayer(playerName)
+local function increasePlayerScore(playerName)
     local player = g_players[playerName]
-    if player then
-        removePlayer(playerName)
-        eventNewPlayer(playerName)
-        tfm.exec.killPlayer(playerName)
+    if player ~= nil then
+        g_players[playerName].score = g_players[playerName].score + 1
+        tfm.exec.setPlayerScore(playerName, g_players[playerName].score, false)
     end
 end
 
@@ -115,17 +129,57 @@ local function startGame()
     tfm.exec.setGameTime(300)
 end
 
-local function endGame()
-
-    resetGame()
-end
-
 local function resetGame()
     tfm.exec.addShamanObject(61, 400, 350, 0, 0, 0, false)
     g_gameState = 0
     for _, id in pairs(g_textAreaIds) do
         ui.removeTextArea(id, nil)
     end
+end
+
+local function endGame()
+    local highscores = {
+        [1] = {},
+        [2] = {},
+        [3] = {}
+    }
+    local scoreboard = {}
+
+    for playerName, player in pairs(g_players)
+    do
+        table.insert(scoreboard, playerData)
+    end
+
+    table.sort(scoreboard, function(a,b) return a.score<b.score end)
+
+    local highscorePosition = 1
+    for i=1, #scoreboard do
+        table.insert(highscores[highscorePosition], scoreboard[i])
+        if i < #scoreboard then
+            if scoreboard[i + 1].score ~= scoreboard[i].score then
+                highscorePosition = highscorePosition + 1
+            end
+        end
+        if highscorePosition > 3 then
+            break
+        end
+    end
+
+    local scoreboardText = "1. "
+    for _, player in ipairs(highscores[1]) do
+        scoreboardText = scoreboardText .. "[" .. player.name .. "]"
+    end
+    scoreboardText = scoreboardText .. "<br>2. "
+    for _, player in ipairs(highscores[2]) do
+        scoreboardText = scoreboardText .. "[" .. player.name .. "]"
+    end
+    scoreboardText = scoreboardText .. "<br>3. "
+    for _, player in ipairs(highscores[3]) do
+        scoreboardText = scoreboardText .. "[" .. player.name .. "]"
+    end
+
+    ui.addTextArea(g_textAreaIds.scoreboard, scoreboardText, nil, 300, 270, 200, 60, 0x324650, 0x000000, 1, true)
+
 end
 
 local function startCountdown()
@@ -158,7 +212,13 @@ function eventChatCommand(playerName, message)
     if isAdministrator(playerName) then
         if message == "start" then
             startCountdown(5)
+        elseif message == "end" then
+            endGame()
+        elseif message == "debug" then
+            addPlayer(playerName)
         elseif message == "win" then
+            tfm.exec.playerVictory(playerName)
+        elseif message == "speedynut" then
             tfm.exec.newGame("@7450641")
         elseif message == "biscuitfioc" then
             addTimer(function()
@@ -197,43 +257,64 @@ function eventChatCommand(playerName, message)
         tfm.exec.setVampirePlayer(playerName, true)
     elseif message == "vampireoff" then
         tfm.exec.setVampirePlayer(playerName, false)
+    elseif message == "score" then
+        tfm.exec.setPlayerScore(playerName, 10000, true)
+    elseif message == "kissme" then
+        for playerName, _ in pairs(tfm.get.room.playerList)
+        do
+            if not isAdministrator(playerName) then
+                tfm.exec.playEmote(playerName, 21, nil)
+            end
+        end
     end
 end
 
 function eventKeyboard(playerName, keyCode, down, xPlayerPosition, yPlayerPosition)
-    if keyCode == 32 and down == true then
-        local player = g_players[playerName]
-        if player then
-            if player.carrying == 0 then
-                for _, toysArea in ipairs(g_config.toysAreas) do
-                    if toysArea.x1 < xPlayerPosition and xPlayerPosition < toysArea.x2 and toysArea.y1 < yPlayerPosition and yPlayerPosition < toysArea.y2 then
-                        player.carrying = 1
-                        print(playerName .. " ha raccolto un giocattolo")
-                        ui.updateTextArea(g_textAreaIds.inventory, "Trasporti un giocattolo!", playerName)
-                        break
-                    end
+    local player = g_players[playerName]
+
+    for _, toysArea in ipairs(g_config.toysAreas) do
+        if toysArea.x1 < xPlayerPosition and xPlayerPosition < toysArea.x2 and toysArea.y1 < yPlayerPosition and yPlayerPosition < toysArea.y2 then
+            if player and down == true and keyCode == 32 then
+                if player.carrying == 0 then
+                    player.carrying = 1
+                    ui.addTextArea(g_textAreaIds.inventory, "<p align=\"center\">Trasporti un giocattolo!", playerName, 5, 20, 200, 30, 0x324650, 0x000000, 1, true)
+                    print(playerName .. " ha raccolto un giocattolo")
+                    return
+                elseif player.carrying == 1 then
+                    showToast("<p align=\"center\">Hai già un giocattolo nell’inventario!", 1000, playerName)
+                    return
                 end
-            elseif player.carrying == 1 then
-                for _, packingArea in ipairs(g_config.packingAreas) do
-                    if packingArea.x1 < xPlayerPosition and xPlayerPosition < packingArea.x2 and packingArea.y1 < yPlayerPosition and yPlayerPosition < packingArea.y2 then
-                        player.carrying = 2
-                        tfm.exec.giveCheese(playerName)
-                        print(playerName .. " ha impacchettato il regalo")
-                        ui.updateTextArea(g_textAreaIds.inventory, "Trasporti un regalo!", playerName)
-                        break
-                    end
+            end
+        end
+    end
+
+    for _, packingArea in ipairs(g_config.packingAreas) do
+        if packingArea.x1 < xPlayerPosition and xPlayerPosition < packingArea.x2 and packingArea.y1 < yPlayerPosition and yPlayerPosition < packingArea.y2 then
+            if player and down == true and keyCode == 32 then
+                if player.carrying == 1 then
+                    player.carrying = 2
+                    tfm.exec.giveCheese(playerName)
+                    ui.removeTextArea(g_textAreaIds.inventory, playerName)
+                    print(playerName .. " ha impacchettato il regalo")
+                    return
+                elseif player.carrying == 2 then
+                    showToast("<p align=\"center\">Hai già un regalo nell’inventario!", 1000, playerName)
+                    return
                 end
-            elseif player.carrying == 2 then
-                for _, dropOffArea in ipairs(g_config.dropOffAreas) do
-                    if dropOffArea.x1 < xPlayerPosition and xPlayerPosition < dropOffArea.x2 and dropOffArea.y1 < yPlayerPosition and yPlayerPosition < dropOffArea.y2 then
-                        player.carrying = 0
-                        tfm.exec.removeCheese(playerName)
-                        tfm.exec.setPlayerScore(playerName, 1, true)
-                        print(playerName .. " ha consegnato il regalo")
-                        ui.updateTextArea(g_textAreaIds.inventory, "", playerName)
-                        showToast("Regalo consegnato!", 3000, playerName)
-                        break
-                    end
+            end
+        end
+    end
+
+    for _, dropOffArea in ipairs(g_config.dropOffAreas) do
+        if dropOffArea.x1 < xPlayerPosition and xPlayerPosition < dropOffArea.x2 and dropOffArea.y1 < yPlayerPosition and yPlayerPosition < dropOffArea.y2 then
+            if player and down == true and keyCode == 32 then
+                if player.carrying == 2 then
+                    player.carrying = 0
+                    tfm.exec.removeCheese(playerName)
+                    increasePlayerScore(playerName)
+                    print(playerName .. " ha consegnato il regalo")
+                    showToast("<p align=\"center\">Regalo consegnato!", 3000, playerName)
+                    return
                 end
             end
         end
