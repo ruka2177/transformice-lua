@@ -87,18 +87,26 @@ local function addPlayer(playerName)
         player = {
             name = playerName,
             carrying = 0,
-            score = 0
+            score = 0,
+            minigame = {
+                nextKeyCode = string.byte(g_config.minigameChars[math.random(#g_config.minigameChars)], 1),
+                combo = 0
+            }
         }
         g_players[playerName] = player
     end
     tfm.exec.setPlayerScore(playerName, player.score, false)
     system.bindKeyboard(playerName, 32, true, true)
+
+    for _, char in ipairs(g_config.minigameChars) do
+        local keyCode = string.byte(char, 1)
+        system.bindKeyboard(playerName, keyCode, true, true)
+    end
 end
 
 local function resetPlayer(playerName)
     local player = g_players[playerName]
     if player ~= nil then
-        removePlayer(playerName)
         eventNewPlayer(playerName)
         tfm.exec.killPlayer(playerName)
     end
@@ -216,6 +224,8 @@ function eventChatCommand(playerName, message)
             endGame()
         elseif message == "debug" then
             addPlayer(playerName)
+        elseif message == "lua" then
+            print (string.byte("m",1))
         elseif message == "win" then
             tfm.exec.playerVictory(playerName)
         elseif message == "speedynut" then
@@ -292,14 +302,31 @@ function eventKeyboard(playerName, keyCode, down, xPlayerPosition, yPlayerPositi
         if packingArea.x1 < xPlayerPosition and xPlayerPosition < packingArea.x2 and packingArea.y1 < yPlayerPosition and yPlayerPosition < packingArea.y2 then
             if player and down == true and keyCode == 32 then
                 if player.carrying == 1 then
-                    player.carrying = 2
-                    tfm.exec.giveCheese(playerName)
-                    ui.removeTextArea(g_textAreaIds.inventory, playerName)
-                    print(playerName .. " ha impacchettato il regalo")
+                    showToast("<p align=\"center\">Premi " .. string.char(player.minigame.nextKeyCode), 3000, playerName)
                     return
                 elseif player.carrying == 2 then
                     showToast("<p align=\"center\">Hai già un regalo nell’inventario!", 1000, playerName)
                     return
+                end
+            elseif player and down == true and keyCode == player.minigame.nextKeyCode and player.carrying == 1 then
+                player.minigame.combo = player.minigame.combo + 1
+                if player.minigame.combo > 5 then
+                    player.minigame.combo = 0
+                    player.carrying = 2
+                    tfm.exec.giveCheese(playerName)
+                    ui.removeTextArea(g_textAreaIds.inventory, playerName)
+                    print(playerName .. " ha impacchettato il regalo")
+                else
+                    player.minigame.nextKeyCode = string.byte(g_config.minigameChars[math.random(#g_config.minigameChars)], 1)
+                    showToast("<p align=\"center\">Premi " .. string.char(player.minigame.nextKeyCode), 3000, playerName)
+                end
+            elseif player and down == true and keyCode ~= player.minigame.nextKeyCode and player.carrying == 1 then
+                if player.minigame.combo > 0 then
+                    player.minigame.combo = 0
+                    player.carrying = 0
+                    ui.removeTextArea(g_textAreaIds.inventory, playerName)
+                    showToast("<p align=\"center\">Peccato! Hai rotto il giocattolo :(", 1000, playerName)
+                    print(playerName .. " ha rovinato il regalo")
                 end
             end
         end
