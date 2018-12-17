@@ -89,7 +89,7 @@ local function addPlayer(playerName)
             carrying = 0,
             score = 0,
             minigame = {
-                nextKeyCode = string.byte(g_config.minigameChars[math.random(#g_config.minigameChars)], 1),
+                nextKeyCode = string.byte(string.upper(g_config.minigameChars[math.random(#g_config.minigameChars)]), 1),
                 combo = 0
             }
         }
@@ -99,7 +99,7 @@ local function addPlayer(playerName)
     system.bindKeyboard(playerName, 32, true, true)
 
     for _, char in ipairs(g_config.minigameChars) do
-        local keyCode = string.byte(char, 1)
+        local keyCode = string.byte(string.upper(char), 1)
         system.bindKeyboard(playerName, keyCode, true, true)
     end
 end
@@ -225,7 +225,7 @@ function eventChatCommand(playerName, message)
         elseif message == "debug" then
             addPlayer(playerName)
         elseif message == "lua" then
-            print (string.byte("m",1))
+            print (string.byte(string.upper("m"),1))
         elseif message == "win" then
             tfm.exec.playerVictory(playerName)
         elseif message == "speedynut" then
@@ -317,17 +317,15 @@ function eventKeyboard(playerName, keyCode, down, xPlayerPosition, yPlayerPositi
                     ui.removeTextArea(g_textAreaIds.inventory, playerName)
                     print(playerName .. " ha impacchettato il regalo")
                 else
-                    player.minigame.nextKeyCode = string.byte(g_config.minigameChars[math.random(#g_config.minigameChars)], 1)
+                    player.minigame.nextKeyCode = string.byte(string.upper(g_config.minigameChars[math.random(#g_config.minigameChars)]), 1)
                     showToast("<p align=\"center\">Premi " .. string.char(player.minigame.nextKeyCode), 3000, playerName)
                 end
             elseif player and down == true and keyCode ~= player.minigame.nextKeyCode and player.carrying == 1 then
-                if player.minigame.combo > 0 then
-                    player.minigame.combo = 0
-                    player.carrying = 0
-                    ui.removeTextArea(g_textAreaIds.inventory, playerName)
-                    showToast("<p align=\"center\">Peccato! Hai rotto il giocattolo :(", 1000, playerName)
-                    print(playerName .. " ha rovinato il regalo")
-                end
+                player.minigame.combo = 0
+                player.carrying = 0
+                ui.removeTextArea(g_textAreaIds.inventory, playerName)
+                showToast("<p align=\"center\">Peccato! Hai rotto il giocattolo :(", 1000, playerName)
+                print(playerName .. " ha rovinato il regalo")
             end
         end
     end
