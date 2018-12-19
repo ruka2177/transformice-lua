@@ -1,19 +1,31 @@
 -- Configuration settings
+tfm.exec.disableAutoShaman(true)
+tfm.exec.disableAutoScore(true)
+tfm.exec.disableAutoNewGame(true)
+tfm.exec.disableAfkDeath(true)
+tfm.exec.disableAutoTimeLeft(true)
+tfm.exec.disablePhysicalConsumables(true)
+tfm.exec.disableMortCommand(true)
+
 local g_config = {
     admins = {"Junny1992#0000", "Ruka#0823"},
-    spawnX = 250,
-    spawnY = 250,
+    spawn = { x = 0, y = 0 },
+    spawnAreas = {
+    	SECOND_FLOOR = {x = 855, y = 162},
+        START = {x = 20, y = 370}
+    },
     toysAreas = {
         {x1 = 1458, y1 = 297, x2 = 1590, y2 = 370}
     },
     packingAreas = {
-        {x1 = 954, y1 = 245, x2 = 1228, y2 = 245}
+        {x1 = 954, y1 = 245, x2 = 1228, y2 = 345}
     },
     dropOffAreas = {
         {x1 = 109, y1 = 285, x2 = 284, y2 = 384}
     },
     minigameChars = {"q","r","u","o","p","f","g","h","j","k","l","z","x","c","v","b","n","m"},
-    map = "@7550816"
+    map = "@7550816",
+    door = "10"
 }
 
 -- Local globals
@@ -65,13 +77,7 @@ end
 
 -- Script core logic
 local function init()
-    tfm.exec.setUIMapName("Greenwolves - Natale 2018")
-    tfm.exec.disableAutoShaman(true)
-    tfm.exec.disableAutoNewGame(true)
-    tfm.exec.disableAutoScore(true)
-    tfm.exec.disableAutoTimeLeft(true)
-    tfm.exec.disableAfkDeath(true)
-
+    tfm.exec.newGame(g_config.map)
     for playerName, _ in pairs(tfm.get.room.playerList)
     do
         eventNewPlayer(playerName)
@@ -131,18 +137,12 @@ end
 
 local function startGame()
     g_gameState = 2
+    g_config.spawn = g_config.spawnAreas.START
     for playerName, player in pairs(g_players) do
-        eventPlayerRespawn(playerName)
+        tfm.exec.killPlayer(playerName)
     end
     tfm.exec.setGameTime(300)
-end
-
-local function resetGame()
-    tfm.exec.addShamanObject(61, 400, 350, 0, 0, 0, false)
-    g_gameState = 0
-    for _, id in pairs(g_textAreaIds) do
-        ui.removeTextArea(id, nil)
-    end
+    tfm.exec.removePhysicObject(g_config.door)
 end
 
 local function endGame()
@@ -153,15 +153,21 @@ local function endGame()
     }
     local scoreboard = {}
 
-    for playerName, player in pairs(g_players)
-    do
-        table.insert(scoreboard, playerData)
+    g_config.spawn = g_config.spawnAreas.SECOND_FLOOR
+    for playerName, _ in pairs(tfm.get.room.playerList) do
+        tfm.exec.killPlayer(playerName)
     end
 
-    table.sort(scoreboard, function(a,b) return a.score<b.score end)
+    for playerName, player in pairs(g_players)
+    do
+        table.insert(scoreboard, player)
+    end
+
+    table.sort(scoreboard, function(a,b) return a.score>b.score end)
 
     local highscorePosition = 1
     for i=1, #scoreboard do
+        print ("[" .. scoreboard[i].score .. "] " .. scoreboard[i].name)
         table.insert(highscores[highscorePosition], scoreboard[i])
         if i < #scoreboard then
             if scoreboard[i + 1].score ~= scoreboard[i].score then
@@ -226,10 +232,6 @@ function eventChatCommand(playerName, message)
             addPlayer(playerName)
         elseif message == "lua" then
             print (string.byte(string.upper("m"),1))
-        elseif message == "win" then
-            tfm.exec.playerVictory(playerName)
-        elseif message == "reset" then
-            resetGame()
         elseif message == "exit" then
             system.exit()
         end
@@ -320,12 +322,8 @@ end
 
 function eventPlayerRespawn(playerName)
     if g_gameState > 0 then
-        tfm.exec.movePlayer(playerName, g_config.spawnX, g_config.spawnY, false, 0, 0, false)
+        tfm.exec.movePlayer(playerName, g_config.spawn.x, g_config.spawn.y, false, 0, 0, false)
     end
-end
-
-function eventNewGame()
-    resetGame()
 end
 
 function eventLoop(currentTime, timeRemaining)
@@ -358,3 +356,4 @@ function eventLoop(currentTime, timeRemaining)
 end
 
 init()
+tfm.exec.setUIMapName("Greenwolves - Natale 2018")
