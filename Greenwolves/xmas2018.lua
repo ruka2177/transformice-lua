@@ -8,7 +8,7 @@ tfm.exec.disablePhysicalConsumables(true)
 tfm.exec.disableMortCommand(true)
 
 local g_config = {
-    admins = {"Junny1992#0000", "Ruka#0823"},
+    admins = {"Junny1992#0000", "Ruka#0823", "Themiachale#0000"},
     spawn = { x = 0, y = 0 },
     spawnAreas = {
     	SECOND_FLOOR = {x = 855, y = 162},
